@@ -5,6 +5,10 @@ Usage:
     inception inspect --agent path/to/agent.yaml
     inception mate --parent-a path/to/a.yaml --parent-b path/to/b.yaml
     inception export --agent path/to/agent.yaml --format openclaw --output ./exported/
+    inception serve --agent examples/seed_agents/coder_agent --port 3000 --allow-mating
+    inception discover --task "data analysis" --registry http://localhost:8080
+    inception register --agent examples/seed_agents/coder_agent --registry http://localhost:8080
+    inception remote-mate --target http://localhost:3001 --agent examples/seed_agents/coder_agent
 """
 
 from __future__ import annotations
@@ -115,7 +119,7 @@ def inspect(agent_path: str):
 
     caps = agent.genome.capability_vector()
     if caps:
-        console.print(f"\nCapabilities:")
+        console.print("\nCapabilities:")
         for cap, strength in sorted(caps.items(), key=lambda x: x[1], reverse=True):
             bar = "█" * int(strength * 20)
             console.print(f"  {cap:30s} {bar} {strength:.2f}")
@@ -192,6 +196,29 @@ def export(agent_path: str, fmt: str, output: str):
         adapter = HermesAdapter()
         adapter.genome_to_hermes_file(agent.genome, output_path / "config.json")
         console.print(f"[green]Exported to Hermes format: {output_path}[/green]")
+
+
+def _register_a2a_commands() -> None:
+    """Register A2A networking commands (lazy import)."""
+    from inception.a2a.cli_commands import (
+        discover,
+        fitness_cmd,
+        pool,
+        register,
+        registry_start,
+        remote_mate,
+        serve,
+    )
+    main.add_command(serve)
+    main.add_command(discover)
+    main.add_command(register)
+    main.add_command(remote_mate, name="remote-mate")
+    main.add_command(pool)
+    main.add_command(registry_start, name="registry")
+    main.add_command(fitness_cmd, name="fitness")
+
+
+_register_a2a_commands()
 
 
 if __name__ == "__main__":
