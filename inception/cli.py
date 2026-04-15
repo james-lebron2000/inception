@@ -221,5 +221,86 @@ def _register_a2a_commands() -> None:
 _register_a2a_commands()
 
 
+@main.command()
+@click.option("--parent-a", type=click.Path(exists=True), required=True,
+              help="Path to first parent SKILL.md")
+@click.option("--parent-b", type=click.Path(exists=True), required=True,
+              help="Path to second parent SKILL.md")
+@click.option("--output", "-o", type=click.Path(), default="offspring.md",
+              help="Output path for offspring SKILL.md")
+@click.option("--strategy", type=click.Choice(["auto", "section-wise", "dimension-wise"]),
+              default="auto", help="Crossover strategy")
+@click.option("--no-mutation", is_flag=True, help="Disable mutation")
+def mendel(parent_a: str, parent_b: str, output: str, strategy: str, no_mutation: bool):
+    """Breed two SKILL.md files to produce an optimized offspring."""
+    from rich.table import Table
+
+    from inception.skills.mendel import MendelConfig, MendelEngine
+    from inception.skills.rubric import DIMENSION_NAMES
+
+    config = MendelConfig(
+        strategy=strategy,
+        enable_mutation=not no_mutation,
+    )
+    engine = MendelEngine(config)
+
+    console.print(Panel.fit(
+        "[bold green]Mendel Breeding Engine[/bold green]\n"
+        f"Parent A: {parent_a}\n"
+        f"Parent B: {parent_b}\n"
+        f"Strategy: {strategy}",
+        title="Mendel",
+    ))
+
+    result = engine.breed(parent_a, parent_b, output)
+
+    # Display results
+    table = Table(title="Breeding Scorecard")
+    table.add_column("Dimension", style="cyan")
+    table.add_column("Weight", style="dim")
+    table.add_column("Parent A", style="yellow")
+    table.add_column("Parent B", style="yellow")
+    table.add_column("Offspring", style="green" if result.succeeded else "red")
+    table.add_column("From", style="dim")
+
+    ordered = [
+        "frontmatter_quality", "workflow_clarity", "boundary_coverage",
+        "checkpoint_design", "instruction_specificity", "resource_integration",
+        "overall_architecture", "live_performance",
+    ]
+    for dim in ordered:
+        da = result.parent_a.dimensions.get(dim)
+        db = result.parent_b.dimensions.get(dim)
+        do = result.offspring.dimensions.get(dim)
+        from inception.skills.rubric import DIMENSIONS
+        w = str(DIMENSIONS.get(dim, "?"))
+        sa = f"{da.raw_score:.1f}" if da else "?"
+        sb = f"{db.raw_score:.1f}" if db else "?"
+        so = f"{do.raw_score:.1f}" if do else "?"
+        source = result.inherited_from.get(dim, "")
+        table.add_row(DIMENSION_NAMES.get(dim, dim), w, sa, sb, so, source)
+
+    table.add_row(
+        "[bold]TOTAL[/bold]", "100",
+        f"[bold]{result.parent_a.total_score:.1f}[/bold]",
+        f"[bold]{result.parent_b.total_score:.1f}[/bold]",
+        f"[bold]{result.offspring.total_score:.1f}[/bold]",
+        "",
+    )
+    console.print(table)
+
+    if result.mutations_applied:
+        console.print("\n[cyan]Mutations applied:[/cyan]")
+        for m in result.mutations_applied:
+            console.print(f"  - {m}")
+
+    if result.succeeded:
+        console.print(f"\n[bold green]Breeding succeeded![/bold green] Delta: {result.score_delta:+.1f}")
+        console.print(f"Offspring saved to: {output}")
+    else:
+        console.print(f"\n[bold red]Breeding failed.[/bold red] Delta: {result.score_delta:+.1f}")
+        console.print("Offspring did not beat better parent. Discarded.")
+
+
 if __name__ == "__main__":
     main()
